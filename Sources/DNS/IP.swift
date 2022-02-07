@@ -1,5 +1,51 @@
 import Foundation
 
+#if os(Windows)
+import struct WinSDK.IN_ADDR
+import struct WinSDK.IN6_ADDR
+
+// WinSDK inet_ntop takes an Int as the length, but socklen_t is Int32
+// import struct WinSDK.socklen_t
+fileprivate typealias socklen_t = Int
+
+import let WinSDK.AF_INET
+import let WinSDK.AF_INET6
+import let WinSDK.INET_ADDRSTRLEN
+import let WinSDK.INET6_ADDRSTRLEN
+
+import func WinSDK.inet_pton
+import func WinSDK.inet_ntop
+
+public typealias in_addr = WinSDK.IN_ADDR
+extension in_addr {
+    public init(s_addr: UInt32) {
+        self.init(S_un: .init(S_addr: s_addr))
+    }
+    var s_addr: UInt32 {
+        return self.S_un.S_addr
+    }
+}
+
+public typealias in6_addr = WinSDK.IN6_ADDR
+extension in6_addr {
+    // This is completely untested. Use at your own risk.
+    struct in6_lies {
+       var __u6_addr32: (UInt32, UInt32, UInt32, UInt32)
+    }
+    var __u6_addr: in6_lies {
+        let toReturn: (UInt32, UInt32, UInt32, UInt32) = withUnsafeBytes(of: self.u.Byte) {
+            rawPtr in
+            return (
+                rawPtr.load(fromByteOffset: 0, as: UInt32.self),
+                rawPtr.load(fromByteOffset: 4, as: UInt32.self),
+                rawPtr.load(fromByteOffset: 8, as: UInt32.self),
+                rawPtr.load(fromByteOffset: 12, as: UInt32.self))
+        }
+        return in6_lies(__u6_addr32: toReturn)
+    }
+}
+#endif
+
 // TODO: replace by sockaddr_storage
 
 /// Undefined for LE
