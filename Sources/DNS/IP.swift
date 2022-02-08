@@ -27,23 +27,6 @@ extension in_addr {
 }
 
 public typealias in6_addr = WinSDK.IN6_ADDR
-extension in6_addr {
-    // This is completely untested. Use at your own risk.
-    struct in6_lies {
-       var __u6_addr32: (UInt32, UInt32, UInt32, UInt32)
-    }
-    var __u6_addr: in6_lies {
-        let toReturn: (UInt32, UInt32, UInt32, UInt32) = withUnsafeBytes(of: self.u.Byte) {
-            rawPtr in
-            return (
-                rawPtr.load(fromByteOffset: 0, as: UInt32.self),
-                rawPtr.load(fromByteOffset: 4, as: UInt32.self),
-                rawPtr.load(fromByteOffset: 8, as: UInt32.self),
-                rawPtr.load(fromByteOffset: 12, as: UInt32.self))
-        }
-        return in6_lies(__u6_addr32: toReturn)
-    }
-}
 #endif
 
 // TODO: replace by sockaddr_storage
@@ -192,6 +175,15 @@ public struct IPv6: IP {
                 htonl(address.__in6_u.__u6_addr32.1).bytes +
                 htonl(address.__in6_u.__u6_addr32.2).bytes +
                 htonl(address.__in6_u.__u6_addr32.3).bytes
+        #elseif os(Windows)
+            return withUnsafeBytes(of: address.u.Byte) {
+                rawPtr in
+                return (
+                    htonl(rawPtr.load(fromByteOffset: 0, as: UInt32.self)).bytes +
+                    htonl(rawPtr.load(fromByteOffset: 4, as: UInt32.self)).bytes +
+                    htonl(rawPtr.load(fromByteOffset: 8, as: UInt32.self)).bytes +
+                    htonl(rawPtr.load(fromByteOffset: 12, as: UInt32.self)).bytes)
+            }
         #else
             return
                 htonl(address.__u6_addr.__u6_addr32.0).bytes +
